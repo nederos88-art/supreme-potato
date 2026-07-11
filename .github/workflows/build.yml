@@ -23,8 +23,15 @@ jobs:
           INNER=$(find _unzipped -maxdepth 2 -name 'gradlew' | head -1)
           SRCDIR=$(dirname "$INNER")
           echo "Корень проекта: $SRCDIR"
+          mkdir -p project
           cp -a "$SRCDIR"/. project/
           ls -la project
+
+      - name: Чиним переносы строк в gradlew (CRLF -> LF) и права на запуск
+        working-directory: project
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
 
       - name: Ставим JDK 17
         uses: actions/setup-java@v4
@@ -34,10 +41,6 @@ jobs:
 
       - name: Настраиваем Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Права на gradlew
-        working-directory: project
-        run: chmod +x ./gradlew
 
       - name: Собираем debug APK
         working-directory: project
