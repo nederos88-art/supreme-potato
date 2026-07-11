@@ -1,0 +1,51 @@
+name: Build APK (from zip)
+
+# Робот сам распакует project.zip и соберёт APK.
+# Запуск: автоматически при заливке + кнопкой Run workflow.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Забираем содержимое репозитория
+        uses: actions/checkout@v4
+
+      - name: Распаковываем project.zip
+        run: |
+          echo "Ищем zip..."
+          ZIP=$(ls project.zip 2>/dev/null || find . -maxdepth 2 -name 'project.zip' | head -1)
+          echo "Нашли: $ZIP"
+          unzip -o -q "$ZIP" -d _unzipped
+          # Внутри zip лежит папка FunPay-Tools-Android-main — поднимаем её содержимое наверх
+          INNER=$(find _unzipped -maxdepth 2 -name 'gradlew' | head -1)
+          SRCDIR=$(dirname "$INNER")
+          echo "Корень проекта: $SRCDIR"
+          cp -a "$SRCDIR"/. project/
+          ls -la project
+
+      - name: Ставим JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Настраиваем Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Права на gradlew
+        working-directory: project
+        run: chmod +x ./gradlew
+
+      - name: Собираем debug APK
+        working-directory: project
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Загружаем готовый APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: project/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
